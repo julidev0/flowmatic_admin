@@ -1,0 +1,111 @@
+/* ================================================
+   ADMIN — estilos específicos del panel admin
+   Sidebar, tablas, badges y stat cards vienen
+   de base.css. Bootstrap 5 solo para el modal.
+   ================================================ */
+
+.admin-body { background: var(--fm-bg); }
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--fm-bg);
+}
+
+.admin-content {
+  flex: 1;
+  padding: 28px 32px;
+}
+
+/* Fila de formulario multcolumna */
+.admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr 1.5fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 900px) {
+  .admin-form-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Grid de stat cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Overrides Bootstrap 5 para coherencia de marca ── */
+
+.card-header.bg-primary,
+.card-header.bg-warning,
+.modal-header.bg-warning {
+  background: var(--fm-brand-dark) !important;
+  color: #ffffff !important;
+  border: none;
+}
+
+.btn.btn-primary {
+  background: var(--fm-brand) !important;
+  border-color: var(--fm-brand) !important;
+  color: #ffffff !important;
+}
+.btn.btn-primary:hover {
+  background: var(--fm-brand-hover) !important;
+  border-color: var(--fm-brand-hover) !important;
+}
+
+.btn.btn-success {
+  background: var(--fm-success) !important;
+  border-color: var(--fm-success) !important;
+}
+
+.btn.btn-warning {
+  background: var(--fm-warning) !important;
+  border-color: var(--fm-warning) !important;
+  color: #ffffff !important;
+}
+
+.btn.btn-danger {
+  background: var(--fm-danger) !important;
+  border-color: var(--fm-danger) !important;
+}
+
+/* Cabecera de tabla Bootstrap */
+.table-dark th,
+thead.table-dark th {
+  background: var(--fm-brand-dark) !important;
+  color: #ffffff !important;
+  font-size: var(--fm-size-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table-hover tbody tr:hover {
+  background: #F0FDFA !important;
+}
+
+/* Modal Bootstrap form-control */
+.modal-body .form-control {
+  border-color: var(--fm-border);
+  border-radius: var(--fm-radius-md);
+  font-family: var(--fm-font);
+  font-size: 14px;
+}
+.modal-body .form-control:focus {
+  border-color: var(--fm-brand);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
