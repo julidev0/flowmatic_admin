@@ -1,9 +1,10 @@
-import io
+import bcrypt
 import openpyxl
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
+from django.urls import reverse
 from django.contrib import messages
 from .models import Usuario
 
@@ -54,10 +55,7 @@ def crear_rrhh(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         if Usuario.objects.filter(email=email).exists():
-            return redirect('/admin/?error=duplicado')
-
-        import bcrypt
-        import uuid
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
 
         usuario = Usuario(
             username=request.POST.get('username'),
@@ -68,11 +66,10 @@ def crear_rrhh(request):
                 bcrypt.gensalt()
             ).decode('utf-8'),
             rol='ROLE_RRHH',
-            activo=False,
-            tokenactivacion=str(uuid.uuid4()),
+            activo=True,
         )
         usuario.save()
-        return redirect('/admin/?pendiente')
+        return HttpResponseRedirect(reverse('panel_admin') + '?pendiente=1')
 
     return redirect('panel_admin')
 
@@ -97,14 +94,13 @@ def editar_usuario(request):
 
         nueva_clave = request.POST.get('nuevaClave')
         if nueva_clave and nueva_clave.strip():
-            import bcrypt
             usuario.clave = bcrypt.hashpw(
                 nueva_clave.encode('utf-8'),
                 bcrypt.gensalt()
             ).decode('utf-8')
 
         usuario.save()
-        return redirect('/admin/?editado')
+        return HttpResponseRedirect(reverse('panel_admin') + '?editado=1')
 
     return redirect('panel_admin')
 
