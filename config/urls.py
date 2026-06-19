@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from admin_panel import views
-
+# esto es una prueba
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.login_view, name='login'),
