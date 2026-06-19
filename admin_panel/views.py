@@ -14,19 +14,30 @@ from .models import Usuario
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('panel_admin')
+        return redireccionar_segun_rol(request.user)
 
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('clave')
         user = authenticate(request, email=email, password=password)
+        
         if user is not None:
             login(request, user)
-            return redirect('panel_admin')
+            return redireccionar_segun_rol(user)
         else:
-            messages.error(request, 'Credenciales inválidas o cuenta no activada.')
+            messages.error(request, 'Credenciales inválidas.')
 
     return render(request, 'login.html')
+
+def redireccionar_segun_rol(user):
+    """Funcion para logica de MultiCriterio"""
+    if user.rol == 'ROLE_ADMINISTRADOR':
+        return redirect('panel_admin')
+    elif user.rol == 'ROLE_RRHH':
+        return redirect('dashboard_rrhh')
+    elif user.rol == 'ROLE_CANDIDATO':
+        return redirect('perfil_candidato')
+    return redirect('login')
 
 def logout_view(request):
     logout(request)
