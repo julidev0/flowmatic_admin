@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activación — Flowmatic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body class="page-auth">
+<div class="split-container">
+
+  <div class="split-form">
+    <div class="split-form-box" style="text-align:center;">
+
+      {% if activacion_exitosa %}
+        <div style="width:64px;height:64px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2 style="color:#059669;margin:0 0 8px;">Cuenta Activada</h2>
+        <p style="color:#666;font-size:14px;margin-bottom:24px;">Tu cuenta ha sido activada correctamente. Ya puedes iniciar sesión.</p>
+        <a href="{% url 'login' %}" class="btn btn-primary btn-full">Iniciar Sesión</a>
+
+      {% elif token_invalido %}
+        <div style="width:64px;height:64px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h2 style="color:#dc2626;margin:0 0 8px;">Enlace Inválido</h2>
+        <p style="color:#666;font-size:14px;margin-bottom:24px;">El enlace de activación es inválido o ha expirado.</p>
+        <a href="{% url 'registro_candidato' %}" class="btn btn-primary btn-full">Crear nueva cuenta</a>
+      {% endif %}
+
+      <div style="text-align:center; margin-top:16px;">
+        <a href="{% url 'login' %}" class="fm-link">Volver al inicio</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="split-visual">
+    <div class="split-visual-gradient"></div>
+    <div class="split-visual-content" style="position:relative; z-index:1; padding:40px; text-align:center;">
+      <h1 style="color:#fff; font-size:28px; font-weight:800; letter-spacing:0.03em; margin-bottom:8px;">Flowmatic</h1>
+      <p style="color:rgba(255,255,255,0.55); font-size:13px; margin-bottom:28px;">Gestión de Reclutamiento</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import uuid
 import bcrypt
 import openpyxl
 from django.shortcuts import render, redirect, get_object_or_404
@@ -6,6 +7,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
+from django.db import IntegrityError
 from .models import Usuario
 
 
@@ -54,11 +58,13 @@ def panel_admin(request):
 def crear_rrhh(request):
     if request.method == 'POST':
         email = request.POST.get('email')
+        username = request.POST.get('username')
         if Usuario.objects.filter(email=email).exists():
             return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
 
+        token = str(uuid.uuid4())
         usuario = Usuario(
-            username=request.POST.get('username'),
+            username=username,
             apellido=request.POST.get('apellido'),
             email=email,
             clave=bcrypt.hashpw(
@@ -66,10 +72,35 @@ def crear_rrhh(request):
                 bcrypt.gensalt()
             ).decode('utf-8'),
             rol='ROLE_RRHH',
-            activo=True,
+            activo=False,
+            tokenactivacion=token,
         )
-        usuario.save()
-        return HttpResponseRedirect(reverse('panel_admin') + '?pendiente=1')
+        try:
+            usuario.save()
+        except IntegrityError:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
+
+        enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        asunto = 'Activa tu cuenta en FLOWMATIC'
+        mensaje = f'''
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
+            <div style="text-align:center;margin-bottom:28px;">
+                <h1 style="color:#0D9488;font-size:24px;margin:0;">FLOWMATIC</h1>
+                <p style="color:#666;font-size:14px;">Gestión de Reclutamiento</p>
+            </div>
+            <div style="background:#fff;padding:32px;border-radius:8px;">
+                <h2 style="color:#1a1a2e;font-size:18px;margin:0 0 12px;">Hola, {username}!</h2>
+                <p style="color:#555;font-size:14px;line-height:1.6;">Te han registrado como personal RRHH en FLOWMATIC. Para activar tu cuenta, haz clic en el botón:</p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{enlace}" style="background:#0D9488;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block;">Activar mi cuenta</a>
+                </div>
+                <p style="color:#999;font-size:12px;">Si no esperabas este correo, ignóralo.</p>
+            </div>
+        </div>
+        '''
+        send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+
+        return HttpResponseRedirect(reverse('panel_admin') + '?envio_exitoso=1')
 
     return redirect('panel_admin')
 
@@ -99,7 +130,10 @@ def editar_usuario(request):
                 bcrypt.gensalt()
             ).decode('utf-8')
 
-        usuario.save()
+        try:
+            usuario.save()
+        except IntegrityError:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
         return HttpResponseRedirect(reverse('panel_admin') + '?editado=1')
 
     return redirect('panel_admin')
@@ -131,3 +165,77 @@ def exportar_excel(request):
     response['Content-Disposition'] = 'attachment; filename=usuarios_reporte.xlsx'
     workbook.save(response)
     return response
+
+
+def registro_candidato(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        username = request.POST.get('username')
+        apellido = request.POST.get('apellido')
+        clave = request.POST.get('clave')
+        telefono = request.POST.get('telefono') or None
+
+        if Usuario.objects.filter(email=email).exists():
+            return render(request, 'registro-candidato.html', {
+                'error_duplicado': True,
+            })
+
+        token = str(uuid.uuid4())
+        usuario = Usuario(
+            username=username,
+            apellido=apellido,
+            email=email,
+            clave=bcrypt.hashpw(clave.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
+            telefono=telefono,
+            rol='ROLE_CANDIDATO',
+            activo=False,
+            tokenactivacion=token,
+        )
+        try:
+            usuario.save()
+        except IntegrityError:
+            return render(request, 'registro-candidato.html', {
+                'error_duplicado': True,
+            })
+
+        enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        asunto = 'Activa tu cuenta en FLOWMATIC'
+        mensaje = f'''
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
+            <div style="text-align:center;margin-bottom:28px;">
+                <h1 style="color:#0D9488;font-size:24px;margin:0;">FLOWMATIC</h1>
+                <p style="color:#666;font-size:14px;">Gestión de Reclutamiento</p>
+            </div>
+            <div style="background:#fff;padding:32px;border-radius:8px;">
+                <h2 style="color:#1a1a2e;font-size:18px;margin:0 0 12px;">Hola, {username}!</h2>
+                <p style="color:#555;font-size:14px;line-height:1.6;">Gracias por registrarte. Para activar tu cuenta y empezar a usar FLOWMATIC, haz clic en el botón:</p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{enlace}" style="background:#0D9488;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block;">Activar mi cuenta</a>
+                </div>
+                <p style="color:#999;font-size:12px;">Si no creaste esta cuenta, ignora este mensaje.</p>
+            </div>
+        </div>
+        '''
+        send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+
+        return redirect(f'{reverse("registro_candidato")}?pendiente=1')
+
+    context = {
+        'mensaje_pendiente': request.GET.get('pendiente') == '1',
+    }
+    return render(request, 'registro-candidato.html', context)
+
+
+def activar_cuenta(request):
+    token = request.GET.get('token')
+    if not token:
+        return render(request, 'activacion.html', {'token_invalido': True})
+
+    try:
+        usuario = Usuario.objects.get(tokenactivacion=token)
+        usuario.activo = True
+        usuario.tokenactivacion = None
+        usuario.save()
+        return render(request, 'activacion.html', {'activacion_exitosa': True})
+    except Usuario.DoesNotExist:
+        return render(request, 'activacion.html', {'token_invalido': True})
