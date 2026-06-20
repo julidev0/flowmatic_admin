@@ -16,6 +16,7 @@ from django.db import IntegrityError
 from django.urls import reverse
 from .models import Usuario
 from django.db.models import Q
+from datetime import date
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -48,14 +49,22 @@ def logout_view(request):
 def panel_admin(request):
     usuarios = Usuario.objects.all()
 
-    total_usuarios = usuarios.count()
-    rrhh_activos = usuarios.filter(rol='ROLE_RRHH', activo=True).count()
-    candidatos = usuarios.filter(rol='ROLE_CANDIDATO').count()
-    pendientes = usuarios.filter(rol='ROLE_CANDIDATO', activo=False).count()
+    query = request.GET.get('q', '').strip()
+    if query:
+        usuarios = usuarios.filter(
+            Q(username__icontains=query) | Q(email__icontains=query)
+        )
+
+    total_filtrados = usuarios.count()
+    total_usuarios = Usuario.objects.count()
+    rrhh_activos = Usuario.objects.filter(rol='ROLE_RRHH', activo=True).count()
+    candidatos = Usuario.objects.filter(rol='ROLE_CANDIDATO').count()
+    pendientes = Usuario.objects.filter(rol='ROLE_CANDIDATO', activo=False).count()
 
     context = {
         'usuarios': usuarios,
         'total_usuarios': total_usuarios,
+        'total_filtrados': total_filtrados,
         'rrhh_activos': rrhh_activos,
         'candidatos': candidatos,
         'pendientes': pendientes,
@@ -190,47 +199,107 @@ def exportar_excel(request):
         workbook = openpyxl.Workbook()
         sheet = workbook.active
         sheet.title = 'Usuarios'
-        header_fill = PatternFill(start_color="0d1b2a", end_color="0d1b2a", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True)
-        alignment = Alignment(horizontal="center", vertical="center")
-        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                        top=Side(style='thin'), bottom=Side(style='thin'))
-        
+        ultima_col = len(cols_seleccionadas)
+
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        center = Alignment(horizontal='center', vertical='center')
+
+        # Row 1 — Logo
+        try:
+            ruta_logo = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+            if os.path.exists(ruta_logo):
+                img = Image(ruta_logo)
+                sheet.row_dimensions[1].height = 55
+                img.height = 55
+                img.width = 195
+                sheet.add_image(img, 'A1')
+        except Exception:
+            pass
+
+        # Row 2 — Title
+        if ultima_col > 1:
+            sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ultima_col)
+        title_cell = sheet.cell(row=2, column=1, value='FLOWMATIC · Gestión de Talento')
+        title_cell.font = Font(name='Calibri', size=16, bold=True, color='0D9488')
+        title_cell.alignment = Alignment(horizontal='center', vertical='center')
+        sheet.row_dimensions[2].height = 30
+
+        # Row 3 — Date / filter info
+        if ultima_col > 1:
+            sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ultima_col)
+        info = f'Generado: {date.today().strftime("%d/%m/%Y")}'
+        if query:
+            info += f' | Búsqueda: "{query}"'
+        info_cell = sheet.cell(row=3, column=1, value=info)
+        info_cell.font = Font(name='Calibri', size=10, color='6B7280', italic=True)
+        info_cell.alignment = Alignment(horizontal='center', vertical='center')
+        sheet.row_dimensions[3].height = 18
+
+        # Row 4 — Headers
+        header_row = 4
+        header_fill = PatternFill(start_color='0D1B2A', end_color='0D1B2A', fill_type='solid')
+        header_font = Font(name='Calibri', color='FFFFFF', bold=True, size=11)
         for col_idx, col_key in enumerate(cols_seleccionadas, 1):
-            label = mapeo[col_key]['label']
-            cell = sheet.cell(row=2, column=col_idx, value=label)
+            cell = sheet.cell(row=header_row, column=col_idx, value=mapeo[col_key]['label'])
             cell.fill = header_fill
             cell.font = header_font
-            cell.alignment = alignment
-            cell.border = border
+            cell.alignment = center
+            cell.border = thin_border
+        sheet.row_dimensions[header_row].height = 24
 
-        for row_idx, u in enumerate(usuarios, 3):
+        # Row 5+ — Data with zebra striping and status colors
+        zebra_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+        active_fill = PatternFill(start_color='D1FAE5', end_color='D1FAE5', fill_type='solid')
+        active_font = Font(name='Calibri', color='065F46', bold=True, size=11)
+        pending_fill = PatternFill(start_color='FEF3C7', end_color='FEF3C7', fill_type='solid')
+        pending_font = Font(name='Calibri', color='92400E', bold=True, size=11)
+        data_font = Font(name='Calibri', size=11)
+        role_map = {
+            'ROLE_ADMINISTRADOR': 'Administrador',
+            'ROLE_RRHH': 'RRHH',
+            'ROLE_CANDIDATO': 'Candidato',
+        }
+
+        for row_offset, u in enumerate(usuarios):
+            row_idx = header_row + 1 + row_offset
             for col_idx, col_key in enumerate(cols_seleccionadas, 1):
                 if col_key == 'estado':
                     val = 'Activo' if u.activo else 'Pendiente'
                 elif col_key == 'rol':
-                    val = str(u.rol)
+                    val = role_map.get(u.rol, str(u.rol))
                 else:
                     val = getattr(u, mapeo[col_key]['attr'])
-                
+
                 cell = sheet.cell(row=row_idx, column=col_idx, value=val)
-                cell.alignment = alignment
-                cell.border = border
-        
-        img = Image("/home/shaggylinuxero/flowmatic_admin/static/img/logo.png")
-        sheet.row_dimensions[1].height = 100
-        img.height = 100
-        img.width = 350
-        sheet.add_image(img, 'A1')
-        for col in sheet.columns:
+                cell.alignment = center
+                cell.border = thin_border
+
+                if col_key == 'estado':
+                    if val == 'Activo':
+                        cell.fill = active_fill
+                        cell.font = active_font
+                    else:
+                        cell.fill = pending_fill
+                        cell.font = pending_font
+                else:
+                    if row_offset % 2 == 1:
+                        cell.fill = zebra_fill
+                    cell.font = data_font
+
+        # — Auto‑ajuste de ancho de columnas —
+        for col_cells in sheet.columns:
             max_length = 0
-            column = col[0].column_letter
-            for cell in col:
+            col_letter = col_cells[0].column_letter
+            for c in col_cells:
                 try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except: pass
-            sheet.column_dimensions[column].width = max_length + 2
+                    if c.value and len(str(c.value)) > max_length:
+                        max_length = len(str(c.value))
+                except Exception:
+                    pass
+            sheet.column_dimensions[col_letter].width = min(max_length + 3, 40)
         
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -330,3 +399,93 @@ def activar_cuenta(request):
         return render(request, 'activacion.html', {'activacion_exitosa': True})
     except Usuario.DoesNotExist:
         return render(request, 'activacion.html', {'token_invalido': True})
+
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        if not email:
+            return render(request, 'forgot-password.html', {'error_campos': True})
+
+        try:
+            usuario = Usuario.objects.get(email=email)
+        except Usuario.DoesNotExist:
+            return redirect('/forgot-password/?success=1')
+
+        token = str(uuid.uuid4())
+        usuario.tokenactivacion = token
+        if not usuario.apellido or not usuario.apellido.strip():
+            usuario.apellido = 'N/A'
+        try:
+            usuario.save()
+        except Exception:
+            return redirect('/forgot-password/?success=1')
+
+        enlace = request.build_absolute_uri(f'/reset-password?token={token}')
+        asunto = 'Restablece tu contraseña en FLOWMATIC'
+        mensaje = f'''
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
+            <div style="text-align:center;margin-bottom:28px;">
+                <h1 style="color:#0D9488;font-size:24px;margin:0;">FLOWMATIC</h1>
+                <p style="color:#666;font-size:14px;">Gestión de Reclutamiento</p>
+            </div>
+            <div style="background:#fff;padding:32px;border-radius:8px;">
+                <h2 style="color:#1a1a2e;font-size:18px;margin:0 0 12px;">Hola, {usuario.username}!</h2>
+                <p style="color:#555;font-size:14px;line-height:1.6;">Recibimos una solicitud para restablecer la contraseña de tu cuenta en FLOWMATIC.</p>
+                <p style="color:#555;font-size:14px;line-height:1.6;">Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="{enlace}" style="background:#0D9488;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block;">Restablecer contraseña</a>
+                </div>
+                <p style="color:#999;font-size:12px;">Si no solicitaste el restablecimiento de contraseña, ignora este mensaje.</p>
+            </div>
+        </div>
+        '''
+        try:
+            send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+        except smtplib.SMTPException:
+            pass
+
+        return redirect('/forgot-password/?success=1')
+
+    success = request.GET.get('success') == '1'
+    return render(request, 'forgot-password.html', {'success': success})
+
+
+def reset_password(request):
+    success = request.GET.get('success')
+
+    if success:
+        return render(request, 'reset-password.html', {'success': True})
+
+    if request.method == 'POST':
+        token = request.POST.get('token', '').strip()
+        password = request.POST.get('password', '')
+
+        if not token:
+            return render(request, 'reset-password.html', {'error_token': True})
+
+        if len(password) < 8:
+            return render(request, 'reset-password.html', {
+                'token': token,
+                'error_password': True,
+            })
+
+        try:
+            usuario = Usuario.objects.get(tokenactivacion=token)
+        except Usuario.DoesNotExist:
+            return redirect('/forgot-password/?error_token=1')
+
+        usuario.clave = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        usuario.tokenactivacion = None
+        try:
+            usuario.save()
+        except Exception:
+            return redirect('/forgot-password/?error_token=1')
+
+        return redirect('/reset-password?success=1')
+
+    token = request.GET.get('token', '').strip()
+    if not token:
+        return render(request, 'reset-password.html', {'error_token': True})
+
+    return render(request, 'reset-password.html', {'token': token})

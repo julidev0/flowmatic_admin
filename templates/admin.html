@@ -68,20 +68,53 @@
         </a>
       </div>
     </header>
-    <div>
-    <form action="{% url 'panel_admin' %}" method="GET" class="mb-4">
-        <label><input type="checkbox" name="col" value="id" checked> ID</label>
-        <label><input type="checkbox" name="col" value="username" checked> Nombre</label>
-        <label><input type="checkbox" name="col" value="email" checked> Email</label>
-        <label><input type="checkbox" name="col" value="rol" checked> Rol</label>
-        <label><input type="checkbox" name="col" value="estado" checked> Estado</label>
-
-        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar...">
-        
-        <button type="submit" class="btn btn-primary">Filtrar</button>
-        
-    </form>
-
+    <div class="filter-bar">
+      <form action="{% url 'panel_admin' %}" method="GET">
+        <div class="filter-row filter-row-chips">
+          <span class="filter-label">Campos:</span>
+          <label class="filter-chip">
+            <input type="checkbox" name="col" value="id" checked>
+            <span>ID</span>
+          </label>
+          <label class="filter-chip">
+            <input type="checkbox" name="col" value="username" checked>
+            <span>Nombre</span>
+          </label>
+          <label class="filter-chip">
+            <input type="checkbox" name="col" value="email" checked>
+            <span>Email</span>
+          </label>
+          <label class="filter-chip">
+            <input type="checkbox" name="col" value="rol" checked>
+            <span>Rol</span>
+          </label>
+          <label class="filter-chip">
+            <input type="checkbox" name="col" value="estado" checked>
+            <span>Estado</span>
+          </label>
+        </div>
+        <div class="filter-row filter-row-search">
+          <div class="filter-search-wrap">
+            <svg class="filter-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle class="sr-ring" cx="10" cy="10" r="7" stroke="#0D9488" stroke-width="2"
+                      stroke-dasharray="44" stroke-dashoffset="44"/>
+              <circle class="sr-eye-l" cx="8" cy="9" r="1.2" fill="#0D9488"/>
+              <circle class="sr-eye-r" cx="12" cy="9" r="1.2" fill="#0D9488"/>
+              <line class="sr-handle" x1="15" y1="15" x2="21" y2="21" stroke="#0D9488" stroke-width="2.5"
+                    stroke-linecap="round" stroke-dasharray="10" stroke-dashoffset="10"/>
+            </svg>
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar por nombre o email..."
+                   class="filter-search-input" autocomplete="off">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+          {% if request.GET.q or request.GET.col %}
+            <a href="{% url 'panel_admin' %}" class="btn btn-ghost btn-sm">Limpiar</a>
+          {% endif %}
+        </div>
+      </form>
+      {% if request.GET.q %}
+        <div class="filter-result-count">{{ total_filtrados }} usuario{{ total_filtrados|pluralize }} encontrado{{ total_filtrados|pluralize }}</div>
+      {% endif %}
     </div>
     <div class="admin-content">
 

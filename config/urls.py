@@ -13,4 +13,6 @@ urlpatterns = [
     path('admin-panel/exportar/', views.exportar_excel, name='exportar_excel'),
     path('registro/', views.registro_candidato, name='registro_candidato'),
     path('activar/', views.activar_cuenta, name='activar_cuenta'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password/', views.reset_password, name='reset_password'),
 ]

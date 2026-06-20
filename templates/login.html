@@ -12,11 +12,24 @@
   <link rel="stylesheet" href="{% static 'css/login.css' %}">
 </head>
 <body class="page-auth">
+
+<div class="loader-overlay" id="loader">
+  <div class="loader"></div>
+</div>
+
 <div class="split-container">
 
   <div class="split-form">
     <div class="split-form-box">
-      <h2>Iniciar Sesión</h2>
+
+      <div style="display:flex; justify-content:center; margin-bottom:20px;">
+        <a href="/" title="Ir al inicio" class="logo-link">
+          {% include 'fragments/logo-full.html' %}
+        </a>
+      </div>
+
+      <p style="text-align:center; font-size:13px; color:var(--fm-text-muted); margin-bottom:4px;">Bienvenido de vuelta</p>
+      <h2 style="text-align:center;">Iniciar Sesión</h2>
 
       {% if messages %}
         {% for message in messages %}
@@ -24,7 +37,7 @@
         {% endfor %}
       {% endif %}
 
-      <form method="post" action="{% url 'login' %}">
+      <form method="post" action="{% url 'login' %}" id="formLogin">
         {% csrf_token %}
         <div class="form-group">
           <label class="form-label">Correo Electrónico</label>
@@ -34,37 +47,56 @@
           <label class="form-label">Contraseña</label>
           <input type="password" name="clave" class="form-input" required placeholder="••••••••">
         </div>
+        <div class="forgot-link-row">
+          <a class="fm-link" href="{% url 'forgot_password' %}">¿Olvidaste tu contraseña?</a>
+        </div>
         <button type="submit" class="btn btn-primary btn-full">Ingresar</button>
       </form>
 
-      <div style="text-align:center; margin-top:16px;">
-        <a href="/" class="fm-link">Volver al inicio</a>
-      </div>
     </div>
   </div>
 
   <div class="split-visual">
     <div class="split-visual-gradient"></div>
-    <div class="split-visual-content" style="position:relative; z-index:1; padding:40px; text-align:center;">
-      <h1 style="color:#fff; font-size:28px; font-weight:800; letter-spacing:0.03em; margin-bottom:8px;">Flowmatic</h1>
-      <p style="color:rgba(255,255,255,0.55); font-size:13px; margin-bottom:28px;">Gestión de Reclutamiento</p>
-      <ul style="list-style:none; width:100%; max-width:220px; text-align:left; margin:0 auto;">
-        <li style="display:flex; align-items:center; gap:10px; margin-bottom:14px; color:rgba(255,255,255,0.8); font-size:13px;">
-          <span style="width:22px; height:22px; border-radius:50%; background:rgba(13,148,136,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#0D9488;">✓</span>
-          Gestión de candidatos
+    <div class="split-visual-decor" style="top:-80px; right:-80px; width:160px; height:160px;"></div>
+    <div class="split-visual-decor" style="bottom:-60px; left:-60px; width:120px; height:120px;"></div>
+    <div class="split-visual-decor" style="top:33%; left:28%; width:80px; height:80px; border-width:1px;"></div>
+
+    <div class="split-visual-content">
+      <a href="/" title="Ir al inicio" class="logo-link">
+        {% include 'fragments/logo-full.html' %}
+      </a>
+      <p class="split-visual-tagline">Gestión de Talento Inteligente</p>
+
+      <ul class="split-visual-bullets">
+        <li>
+          <span class="split-visual-check">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <span class="split-visual-list-text">Acceso seguro con roles</span>
         </li>
-        <li style="display:flex; align-items:center; gap:10px; margin-bottom:14px; color:rgba(255,255,255,0.8); font-size:13px;">
-          <span style="width:22px; height:22px; border-radius:50%; background:rgba(13,148,136,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#0D9488;">✓</span>
-          Panel administrativo
+        <li>
+          <span class="split-visual-check">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <span class="split-visual-list-text">Documentos centralizados</span>
         </li>
-        <li style="display:flex; align-items:center; gap:10px; margin-bottom:14px; color:rgba(255,255,255,0.8); font-size:13px;">
-          <span style="width:22px; height:22px; border-radius:50%; background:rgba(13,148,136,0.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#0D9488;">✓</span>
-          Reportes exportables
+        <li>
+          <span class="split-visual-check">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <span class="split-visual-list-text">Pipeline de candidatos en tiempo real</span>
         </li>
       </ul>
     </div>
   </div>
 
 </div>
+
+<script>
+  document.getElementById("formLogin").addEventListener("submit", function() {
+    document.getElementById("loader").style.display = "flex";
+  });
+</script>
 </body>
 </html>
