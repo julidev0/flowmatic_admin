@@ -26,7 +26,11 @@ def login_view(request):
         if not email or not password:
             messages.error(request, 'Todos los campos son obligatorios.')
             return render(request, 'login.html')
-        user = authenticate(request, email=email, password=password)
+        try:
+            user = authenticate(request, email=email, password=password)
+        except Exception:
+            messages.error(request, 'Error al iniciar sesión. Intenta de nuevo.')
+            return render(request, 'login.html')
         if user is not None:
             login(request, user)
             return redirect('panel_admin')
