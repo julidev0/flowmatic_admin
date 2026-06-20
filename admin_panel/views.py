@@ -12,7 +12,6 @@ from django.conf import settings
 from django.db import IntegrityError
 from .models import Usuario
 
-
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('panel_admin')
@@ -29,11 +28,9 @@ def login_view(request):
 
     return render(request, 'login.html')
 
-
 def logout_view(request):
     logout(request)
     return redirect('login')
-
 
 @login_required
 def panel_admin(request):
@@ -52,7 +49,6 @@ def panel_admin(request):
         'pendientes': pendientes,
     }
     return render(request, 'admin.html', context)
-
 
 @login_required
 def crear_rrhh(request):
