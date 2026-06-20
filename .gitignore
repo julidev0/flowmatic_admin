@@ -31,3 +31,8 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Scripts / utilidades
+insertar_usuario_prueba.py
+prueba*.py
+test_*.py
