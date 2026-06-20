@@ -4,40 +4,32 @@ import openpyxl
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseRedirect
-from django.urls import reverse
+from django.http import HttpResponse
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import IntegrityError
 from .models import Usuario
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.drawing.image import Image
+from django.http import HttpResponse
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redireccionar_segun_rol(request.user)
+        return redirect('panel_admin')
 
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('clave')
         user = authenticate(request, email=email, password=password)
-        
         if user is not None:
             login(request, user)
-            return redireccionar_segun_rol(user)
+            return redirect('panel_admin')
         else:
-            messages.error(request, 'Credenciales inválidas.')
+            messages.error(request, 'Credenciales inválidas o cuenta no activada.')
 
     return render(request, 'login.html')
-
-def redireccionar_segun_rol(user):
-    """Funcion para logica de MultiCriterio"""
-    if user.rol == 'ROLE_ADMINISTRADOR':
-        return redirect('panel_admin')
-    elif user.rol == 'ROLE_RRHH':
-        return redirect('dashboard_rrhh')
-    elif user.rol == 'ROLE_CANDIDATO':
-        return redirect('perfil_candidato')
-    return redirect('login')
 
 def logout_view(request):
     logout(request)
@@ -67,7 +59,10 @@ def crear_rrhh(request):
         email = request.POST.get('email')
         username = request.POST.get('username')
         if Usuario.objects.filter(email=email).exists():
-            return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
+            return redirect('/admin/?error=duplicado')
+
+        import bcrypt
+        import uuid
 
         token = str(uuid.uuid4())
         usuario = Usuario(
@@ -132,6 +127,7 @@ def editar_usuario(request):
 
         nueva_clave = request.POST.get('nuevaClave')
         if nueva_clave and nueva_clave.strip():
+            import bcrypt
             usuario.clave = bcrypt.hashpw(
                 nueva_clave.encode('utf-8'),
                 bcrypt.gensalt()
@@ -145,31 +141,49 @@ def editar_usuario(request):
 
     return redirect('panel_admin')
 
-
 @login_required
 def exportar_excel(request):
     usuarios = Usuario.objects.all()
-
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = 'Usuarios'
 
+    header_fill = PatternFill(start_color="0d1b2a", end_color="0d1b2a", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    alignment = Alignment(horizontal="center", vertical="center")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                    top=Side(style='thin'), bottom=Side(style='thin'))
+
     headers = ['ID', 'Username', 'Apellido', 'Email', 'Rol', 'Estado']
     for col, header in enumerate(headers, 1):
-        sheet.cell(row=1, column=col, value=header)
+        cell = sheet.cell(row=2, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = alignment
+        cell.border = border
 
-    for row_idx, u in enumerate(usuarios, 2):
-        sheet.cell(row=row_idx, column=1, value=u.id)
-        sheet.cell(row=row_idx, column=2, value=u.username)
-        sheet.cell(row=row_idx, column=3, value=u.apellido)
-        sheet.cell(row=row_idx, column=4, value=u.email)
-        sheet.cell(row=row_idx, column=5, value=u.rol)
-        sheet.cell(row=row_idx, column=6, value='Activo' if u.activo else 'Pendiente')
+    for row_idx, u in enumerate(usuarios, 3):
+        data = [u.id, u.username, u.apellido, u.email, str(u.rol), 'Activo' if u.activo else 'Pendiente']
+        for col_idx, value in enumerate(data, 1):
+            cell = sheet.cell(row=row_idx, column=col_idx, value=value)
+            cell.alignment = alignment
+            cell.border = border
+    
+    img = Image("/home/shaggylinuxero/flowmatic_admin/static/img/logo.png")
+    sheet.column_dimensions['A'].width = 0
+    sheet.row_dimensions[1].height = 100
+    img.height = 100
+    img.width = 350
 
+    for col in sheet.columns:
+        length = max(len(str(cell.value)) for cell in col)
+        sheet.column_dimensions[openpyxl.utils.get_column_letter(col[0].column)].width = length + 2
+    sheet.add_image(img, 'A1')
+    
     response = HttpResponse(
-        content_type='application/octet-stream',
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename=usuarios_reporte.xlsx'
+    response['Content-Disposition'] = 'attachment; filename="usuarios_reporte.xlsx"'
     workbook.save(response)
     return response
 
