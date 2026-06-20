@@ -15,6 +15,7 @@ from django.conf import settings
 from django.db import IntegrityError
 from django.urls import reverse
 from .models import Usuario
+from django.db.models import Q
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -166,45 +167,71 @@ def editar_usuario(request):
 @login_required
 def exportar_excel(request):
     try:
+        cols_seleccionadas = request.GET.getlist('col')
+        if not cols_seleccionadas:
+            cols_seleccionadas = ['id', 'username', 'apellido', 'email', 'rol', 'estado']
+            
+        query = request.GET.get('q', '')
+        rol = request.GET.get('rol', '')
         usuarios = Usuario.objects.all()
+        if query:
+            usuarios = usuarios.filter(Q(username__icontains=query) | Q(email__icontains=query))
+        if rol:
+            usuarios = usuarios.filter(rol=rol)
+        mapeo = {
+            'id': {'label': 'ID', 'attr': 'id'},
+            'username': {'label': 'Username', 'attr': 'username'},
+            'apellido': {'label': 'Apellido', 'attr': 'apellido'},
+            'email': {'label': 'Email', 'attr': 'email'},
+            'rol': {'label': 'Rol', 'attr': 'rol'},
+            'estado': {'label': 'Estado', 'attr': None}
+        }
+
         workbook = openpyxl.Workbook()
         sheet = workbook.active
         sheet.title = 'Usuarios'
-
         header_fill = PatternFill(start_color="0d1b2a", end_color="0d1b2a", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True)
         alignment = Alignment(horizontal="center", vertical="center")
         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                         top=Side(style='thin'), bottom=Side(style='thin'))
-
-        headers = ['ID', 'Username', 'Apellido', 'Email', 'Rol', 'Estado']
-        for col, header in enumerate(headers, 1):
-            cell = sheet.cell(row=2, column=col, value=header)
+        
+        for col_idx, col_key in enumerate(cols_seleccionadas, 1):
+            label = mapeo[col_key]['label']
+            cell = sheet.cell(row=2, column=col_idx, value=label)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = alignment
             cell.border = border
 
         for row_idx, u in enumerate(usuarios, 3):
-            data = [u.id, u.username, u.apellido, u.email, str(u.rol), 'Activo' if u.activo else 'Pendiente']
-            for col_idx, value in enumerate(data, 1):
-                cell = sheet.cell(row=row_idx, column=col_idx, value=value)
+            for col_idx, col_key in enumerate(cols_seleccionadas, 1):
+                if col_key == 'estado':
+                    val = 'Activo' if u.activo else 'Pendiente'
+                elif col_key == 'rol':
+                    val = str(u.rol)
+                else:
+                    val = getattr(u, mapeo[col_key]['attr'])
+                
+                cell = sheet.cell(row=row_idx, column=col_idx, value=val)
                 cell.alignment = alignment
                 cell.border = border
-
-        logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
-        if os.path.exists(logo_path):
-            img = Image(logo_path)
-            sheet.column_dimensions['A'].width = 0
-            sheet.row_dimensions[1].height = 100
-            img.height = 100
-            img.width = 350
-            sheet.add_image(img, 'A1')
-
+        
+        img = Image("/home/shaggylinuxero/flowmatic_admin/static/img/logo.png")
+        sheet.row_dimensions[1].height = 100
+        img.height = 100
+        img.width = 350
+        sheet.add_image(img, 'A1')
         for col in sheet.columns:
-            length = max(len(str(cell.value or '')) for cell in col)
-            sheet.column_dimensions[openpyxl.utils.get_column_letter(col[0].column)].width = length + 2
-
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except: pass
+            sheet.column_dimensions[column].width = max_length + 2
+        
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
@@ -213,7 +240,6 @@ def exportar_excel(request):
         return response
     except Exception:
         return redirect('panel_admin')
-
 
 def registro_candidato(request):
     if request.method == 'POST':
