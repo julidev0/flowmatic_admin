@@ -36,3 +36,6 @@ Thumbs.db
 insertar_usuario_prueba.py
 prueba*.py
 test_*.py
+
+# Datos
+config/settings.py
