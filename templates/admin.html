@@ -73,6 +73,12 @@
       {% if request.GET.error == 'duplicado' %}
         <div class="alert alert-error">Error: El correo ya está registrado.</div>
       {% endif %}
+      {% if request.GET.error == 'campos_vacios' %}
+        <div class="alert alert-error">Todos los campos obligatorios deben estar llenos.</div>
+      {% endif %}
+      {% if request.GET.error == 'clave_corta' %}
+        <div class="alert alert-error">La contraseña debe tener al menos 8 caracteres.</div>
+      {% endif %}
       {% if request.GET.envio_exitoso %}
         <div class="alert alert-success">Usuario RRHH creado. Se ha enviado un correo de activación.</div>
       {% endif %}

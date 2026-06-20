@@ -21,6 +21,12 @@
       {% if error_duplicado %}
         <div class="alert alert-error">El correo ya está registrado.</div>
       {% endif %}
+      {% if error_campos %}
+        <div class="alert alert-error">Todos los campos obligatorios deben estar llenos.</div>
+      {% endif %}
+      {% if error_clave_corta %}
+        <div class="alert alert-error">La contraseña debe tener al menos 8 caracteres.</div>
+      {% endif %}
       {% if mensaje_pendiente %}
         <div class="alert alert-success">Cuenta creada. Revisa tu correo para activarla.</div>
       {% endif %}

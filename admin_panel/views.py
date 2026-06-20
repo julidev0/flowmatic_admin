@@ -1,29 +1,31 @@
+import os
 import uuid
 import bcrypt
+import smtplib
 import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.drawing.image import Image
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import IntegrityError
-from .models import Usuario
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.drawing.image import Image
-from django.http import HttpResponse
-from django.http import HttpResponseRedirect
 from django.urls import reverse
+from .models import Usuario
 
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('panel_admin')
 
     if request.method == 'POST':
-        email = request.POST.get('email')
-        password = request.POST.get('clave')
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('clave', '')
+        if not email or not password:
+            messages.error(request, 'Todos los campos son obligatorios.')
+            return render(request, 'login.html')
         user = authenticate(request, email=email, password=password)
         if user is not None:
             login(request, user)
@@ -58,28 +60,30 @@ def panel_admin(request):
 @login_required
 def crear_rrhh(request):
     if request.method == 'POST':
-        email = request.POST.get('email')
-        username = request.POST.get('username')
+        email = request.POST.get('email', '').strip()
+        username = request.POST.get('username', '').strip()
+        apellido = request.POST.get('apellido', '').strip()
+        clave = request.POST.get('clave', '')
+
+        if not email or not username or not apellido or not clave:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=campos_vacios')
+        if len(clave) < 8:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=clave_corta')
+
         if Usuario.objects.filter(email=email).exists():
             return redirect('/admin/?error=duplicado')
 
-        import bcrypt
-        import uuid
-
         token = str(uuid.uuid4())
-        usuario = Usuario(
-            username=username,
-            apellido=request.POST.get('apellido'),
-            email=email,
-            clave=bcrypt.hashpw(
-                request.POST.get('clave').encode('utf-8'),
-                bcrypt.gensalt()
-            ).decode('utf-8'),
-            rol='ROLE_RRHH',
-            activo=False,
-            tokenactivacion=token,
-        )
         try:
+            usuario = Usuario(
+                username=username,
+                apellido=apellido,
+                email=email,
+                clave=bcrypt.hashpw(clave.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
+                rol='ROLE_RRHH',
+                activo=False,
+                tokenactivacion=token,
+            )
             usuario.save()
         except IntegrityError:
             return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
@@ -102,7 +106,10 @@ def crear_rrhh(request):
             </div>
         </div>
         '''
-        send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+        try:
+            send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+        except smtplib.SMTPException:
+            return HttpResponseRedirect(reverse('panel_admin') + '?envio_exitoso=1&email_fallo=1')
 
         return HttpResponseRedirect(reverse('panel_admin') + '?envio_exitoso=1')
 
@@ -120,16 +127,25 @@ def eliminar_usuario(request, usuario_id):
 def editar_usuario(request):
     if request.method == 'POST':
         usuario_id = request.POST.get('id')
+        if not usuario_id:
+            return redirect('panel_admin')
+
         usuario = get_object_or_404(Usuario, id=usuario_id)
 
-        usuario.username = request.POST.get('username')
-        usuario.apellido = request.POST.get('apellido')
-        usuario.email = request.POST.get('email')
-        usuario.telefono = request.POST.get('telefono') or None
+        username = request.POST.get('username', '').strip()
+        apellido = request.POST.get('apellido', '').strip()
+        email = request.POST.get('email', '').strip()
 
-        nueva_clave = request.POST.get('nuevaClave')
-        if nueva_clave and nueva_clave.strip():
-            import bcrypt
+        if not username or not apellido or not email:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=campos_vacios')
+
+        usuario.username = username
+        usuario.apellido = apellido
+        usuario.email = email
+        usuario.telefono = request.POST.get('telefono', '').strip() or None
+
+        nueva_clave = request.POST.get('nuevaClave', '')
+        if nueva_clave and len(nueva_clave) >= 8:
             usuario.clave = bcrypt.hashpw(
                 nueva_clave.encode('utf-8'),
                 bcrypt.gensalt()
@@ -145,76 +161,95 @@ def editar_usuario(request):
 
 @login_required
 def exportar_excel(request):
-    usuarios = Usuario.objects.all()
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = 'Usuarios'
+    try:
+        usuarios = Usuario.objects.all()
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = 'Usuarios'
 
-    header_fill = PatternFill(start_color="0d1b2a", end_color="0d1b2a", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    alignment = Alignment(horizontal="center", vertical="center")
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                    top=Side(style='thin'), bottom=Side(style='thin'))
+        header_fill = PatternFill(start_color="0d1b2a", end_color="0d1b2a", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+        alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                        top=Side(style='thin'), bottom=Side(style='thin'))
 
-    headers = ['ID', 'Username', 'Apellido', 'Email', 'Rol', 'Estado']
-    for col, header in enumerate(headers, 1):
-        cell = sheet.cell(row=2, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = alignment
-        cell.border = border
-
-    for row_idx, u in enumerate(usuarios, 3):
-        data = [u.id, u.username, u.apellido, u.email, str(u.rol), 'Activo' if u.activo else 'Pendiente']
-        for col_idx, value in enumerate(data, 1):
-            cell = sheet.cell(row=row_idx, column=col_idx, value=value)
+        headers = ['ID', 'Username', 'Apellido', 'Email', 'Rol', 'Estado']
+        for col, header in enumerate(headers, 1):
+            cell = sheet.cell(row=2, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
             cell.alignment = alignment
             cell.border = border
-    
-    img = Image("/home/shaggylinuxero/flowmatic_admin/static/img/logo.png")
-    sheet.column_dimensions['A'].width = 0
-    sheet.row_dimensions[1].height = 100
-    img.height = 100
-    img.width = 350
 
-    for col in sheet.columns:
-        length = max(len(str(cell.value)) for cell in col)
-        sheet.column_dimensions[openpyxl.utils.get_column_letter(col[0].column)].width = length + 2
-    sheet.add_image(img, 'A1')
-    
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = 'attachment; filename="usuarios_reporte.xlsx"'
-    workbook.save(response)
-    return response
+        for row_idx, u in enumerate(usuarios, 3):
+            data = [u.id, u.username, u.apellido, u.email, str(u.rol), 'Activo' if u.activo else 'Pendiente']
+            for col_idx, value in enumerate(data, 1):
+                cell = sheet.cell(row=row_idx, column=col_idx, value=value)
+                cell.alignment = alignment
+                cell.border = border
+
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+        if os.path.exists(logo_path):
+            img = Image(logo_path)
+            sheet.column_dimensions['A'].width = 0
+            sheet.row_dimensions[1].height = 100
+            img.height = 100
+            img.width = 350
+            sheet.add_image(img, 'A1')
+
+        for col in sheet.columns:
+            length = max(len(str(cell.value or '')) for cell in col)
+            sheet.column_dimensions[openpyxl.utils.get_column_letter(col[0].column)].width = length + 2
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename="usuarios_reporte.xlsx"'
+        workbook.save(response)
+        return response
+    except Exception:
+        return redirect('panel_admin')
 
 
 def registro_candidato(request):
     if request.method == 'POST':
-        email = request.POST.get('email')
-        username = request.POST.get('username')
-        apellido = request.POST.get('apellido')
-        clave = request.POST.get('clave')
-        telefono = request.POST.get('telefono') or None
+        email = request.POST.get('email', '').strip()
+        username = request.POST.get('username', '').strip()
+        apellido = request.POST.get('apellido', '').strip()
+        clave = request.POST.get('clave', '')
+        telefono = request.POST.get('telefono', '').strip() or None
 
-        if Usuario.objects.filter(email=email).exists():
+        if not email or not username or not apellido or not clave:
+            return render(request, 'registro-candidato.html', {
+                'error_campos': True,
+            })
+        if len(clave) < 8:
+            return render(request, 'registro-candidato.html', {
+                'error_clave_corta': True,
+            })
+
+        try:
+            if Usuario.objects.filter(email=email).exists():
+                return render(request, 'registro-candidato.html', {
+                    'error_duplicado': True,
+                })
+        except Exception:
             return render(request, 'registro-candidato.html', {
                 'error_duplicado': True,
             })
 
         token = str(uuid.uuid4())
-        usuario = Usuario(
-            username=username,
-            apellido=apellido,
-            email=email,
-            clave=bcrypt.hashpw(clave.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
-            telefono=telefono,
-            rol='ROLE_CANDIDATO',
-            activo=False,
-            tokenactivacion=token,
-        )
         try:
+            usuario = Usuario(
+                username=username,
+                apellido=apellido,
+                email=email,
+                clave=bcrypt.hashpw(clave.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
+                telefono=telefono,
+                rol='ROLE_CANDIDATO',
+                activo=False,
+                tokenactivacion=token,
+            )
             usuario.save()
         except IntegrityError:
             return render(request, 'registro-candidato.html', {
@@ -239,7 +274,10 @@ def registro_candidato(request):
             </div>
         </div>
         '''
-        send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+        try:
+            send_mail(asunto, '', settings.DEFAULT_FROM_EMAIL, [email], html_message=mensaje, fail_silently=False)
+        except smtplib.SMTPException:
+            pass
 
         return redirect(f'{reverse("registro_candidato")}?pendiente=1')
 
