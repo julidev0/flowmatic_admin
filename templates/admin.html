@@ -56,10 +56,16 @@
         <p class="fm-topbar-title">Panel de Administración</p>
         <p class="fm-topbar-sub">Gestión de usuarios y personal</p>
       </div>
-      <a href="{% url 'exportar_excel' %}" class="btn btn-primary btn-sm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Exportar Excel
-      </a>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalRegistrarRRHH">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Registrar RRHH
+        </button>
+        <a href="{% url 'exportar_excel' %}" class="btn btn-primary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar Excel
+        </a>
+      </div>
     </header>
 
     <div class="admin-content">
@@ -74,44 +80,52 @@
         <div class="alert alert-success">Usuario editado correctamente.</div>
       {% endif %}
 
-      <div class="card" style="margin-bottom:28px;">
-        <div class="card-header-dark">Registrar Personal de RRHH</div>
-        <div style="padding:20px;">
-          <form action="{% url 'crear_rrhh' %}" method="post">
-            {% csrf_token %}
-            <div class="admin-form-row">
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">Nombre</label>
-                <input type="text" name="username" class="form-input"
-                       required minlength="2" maxlength="50"
-                       pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios"
-                       placeholder="Nombre">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">Apellido</label>
-                <input type="text" name="apellido" class="form-input"
-                       required minlength="2" maxlength="50"
-                       pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios"
-                       placeholder="Apellido">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">Email</label>
-                <input type="email" name="email" class="form-input"
-                       required maxlength="100" placeholder="correo@empresa.com">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label">Contraseña</label>
-                <input type="password" name="clave" class="form-input"
-                       required minlength="8" maxlength="100"
-                       placeholder="Mínimo 8 caracteres">
-              </div>
-              <div style="display:flex; align-items:flex-end;">
-                <button type="submit" class="btn btn-primary" style="width:100%;">Crear RRHH</button>
-              </div>
+      {% spaceless %}
+      <div class="modal fade" id="modalRegistrarRRHH" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content" style="border:none; border-radius:var(--fm-radius-lg); overflow:hidden;">
+            <div class="modal-header" style="background:var(--fm-brand-dark); color:#fff; border:none;">
+              <h5 class="modal-title" style="font-weight:700;">Registrar Personal RRHH</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-          </form>
+            <form action="{% url 'crear_rrhh' %}" method="post">
+              {% csrf_token %}
+              <div class="modal-body" style="padding:24px;">
+                <div class="form-group">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" name="username" class="form-input"
+                         required minlength="2" maxlength="50"
+                         pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios"
+                         placeholder="Nombre">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Apellido</label>
+                  <input type="text" name="apellido" class="form-input"
+                         required minlength="2" maxlength="50"
+                         pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios"
+                         placeholder="Apellido">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" name="email" class="form-input"
+                         required maxlength="100" placeholder="correo@empresa.com">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Contraseña</label>
+                  <input type="password" name="clave" class="form-input"
+                         required minlength="8" maxlength="100"
+                         placeholder="Mínimo 8 caracteres">
+                </div>
+              </div>
+              <div class="modal-footer" style="border-top:1px solid var(--fm-border); padding:16px 24px;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Crear RRHH</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
+      {% endspaceless %}
 
       <div class="table-container">
         <table class="data-table">
