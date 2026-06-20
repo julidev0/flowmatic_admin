@@ -658,11 +658,21 @@ body {
 
 .fm-sidebar {
   width: var(--fm-sidebar-width);
-  min-height: 100vh;
+  height: 100vh;
   background: var(--fm-brand-dark);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+}
+
+.fm-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .fm-sidebar-header {
@@ -731,6 +741,7 @@ body {
 
 .fm-sidebar-footer {
   margin-top: auto;
+  flex-shrink: 0;
   padding: 16px 20px;
   border-top: 1px solid var(--fm-sidebar-hover);
 }

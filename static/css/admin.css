@@ -4,11 +4,15 @@
    de base.css. Bootstrap 5 solo para el modal.
    ================================================ */
 
-.admin-body { background: var(--fm-bg); }
+.admin-body {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--fm-bg);
+}
 
 .admin-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100%;
 }
 
 .admin-main {
@@ -21,6 +25,8 @@
 
 .admin-content {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 28px 32px;
 }
 
