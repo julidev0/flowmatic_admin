@@ -12,10 +12,17 @@
   <link rel="stylesheet" href="{% static 'css/login.css' %}">
 </head>
 <body class="page-auth">
+
 <div class="split-container">
 
   <div class="split-form">
     <div class="split-form-box" style="text-align:center;">
+
+      <div style="display:flex; justify-content:center; margin-bottom:20px;">
+        <a href="{% url 'login' %}" title="Ir al inicio" class="logo-link">
+          {% include 'fragments/logo-full.html' %}
+        </a>
+      </div>
 
       {% if activacion_exitosa %}
         <div style="width:64px;height:64px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
@@ -42,12 +49,19 @@
 
   <div class="split-visual">
     <div class="split-visual-gradient"></div>
-    <div class="split-visual-content" style="position:relative; z-index:1; padding:40px; text-align:center;">
-      <h1 style="color:#fff; font-size:28px; font-weight:800; letter-spacing:0.03em; margin-bottom:8px;">Flowmatic</h1>
-      <p style="color:rgba(255,255,255,0.55); font-size:13px; margin-bottom:28px;">Gestión de Reclutamiento</p>
+    <div class="split-visual-decor" style="top:-80px; right:-80px; width:160px; height:160px;"></div>
+    <div class="split-visual-decor" style="bottom:-60px; left:-60px; width:120px; height:120px;"></div>
+    <div class="split-visual-decor" style="top:33%; left:28%; width:80px; height:80px; border-width:1px;"></div>
+
+    <div class="split-visual-content">
+      <a href="{% url 'login' %}" title="Ir al inicio" class="logo-link">
+        {% include 'fragments/logo-full.html' %}
+      </a>
+      <p class="split-visual-tagline">Flowmatic — Gestión de Talento</p>
     </div>
   </div>
 
 </div>
+
 </body>
 </html>
