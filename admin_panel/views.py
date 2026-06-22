@@ -2,6 +2,7 @@ import os
 import uuid
 import bcrypt
 import smtplib
+import logging
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.drawing.image import Image
@@ -18,6 +19,8 @@ from .models import Usuario
 from django.db.models import Q
 from datetime import date
 
+logger = logging.getLogger(__name__)
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('panel_admin')
@@ -30,11 +33,17 @@ def login_view(request):
             return render(request, 'login.html')
         try:
             user = authenticate(request, email=email, password=password)
-        except Exception:
+        except Exception as e:
+            logger.exception("Error al autenticar usuario %s: %s", email, e)
             messages.error(request, 'Error al iniciar sesión. Intenta de nuevo.')
             return render(request, 'login.html')
         if user is not None:
-            login(request, user)
+            try:
+                login(request, user)
+            except Exception as e:
+                logger.exception("Error al iniciar sesión para %s: %s", email, e)
+                messages.error(request, 'Error al iniciar sesión. Intenta de nuevo.')
+                return render(request, 'login.html')
             return redirect('panel_admin')
         else:
             messages.error(request, 'Credenciales inválidas o cuenta no activada.')
@@ -42,7 +51,10 @@ def login_view(request):
     return render(request, 'login.html')
 
 def logout_view(request):
-    logout(request)
+    try:
+        logout(request)
+    except Exception as e:
+        logger.exception("Error al cerrar sesión: %s", e)
     return redirect('login')
 
 @login_required
@@ -99,10 +111,16 @@ def crear_rrhh(request):
                 tokenactivacion=token,
             )
             usuario.save()
-        except IntegrityError:
+        except Exception as e:
+            logger.exception("Error al crear RRHH %s: %s", email, e)
             return HttpResponseRedirect(reverse('panel_admin') + '?error=duplicado')
 
-        enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        try:
+            enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        except Exception as e:
+            logger.exception("Error al construir URI para %s: %s", email, e)
+            enlace = f'http://localhost:8000/activar/?token={token}'
+
         asunto = 'Activa tu cuenta en FLOWMATIC'
         mensaje = f'''
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
@@ -132,8 +150,12 @@ def crear_rrhh(request):
 
 @login_required
 def eliminar_usuario(request, usuario_id):
-    usuario = get_object_or_404(Usuario, id=usuario_id)
-    usuario.delete()
+    try:
+        usuario = get_object_or_404(Usuario, id=usuario_id)
+        usuario.delete()
+    except Exception as e:
+        logger.exception("Error al eliminar usuario %s: %s", usuario_id, e)
+        return redirect('panel_admin')
     return redirect('panel_admin')
 
 
@@ -160,10 +182,14 @@ def editar_usuario(request):
 
         nueva_clave = request.POST.get('nuevaClave', '')
         if nueva_clave and len(nueva_clave) >= 8:
-            usuario.clave = bcrypt.hashpw(
-                nueva_clave.encode('utf-8'),
-                bcrypt.gensalt()
-            ).decode('utf-8')
+            try:
+                usuario.clave = bcrypt.hashpw(
+                    nueva_clave.encode('utf-8'),
+                    bcrypt.gensalt()
+                ).decode('utf-8')
+            except Exception as e:
+                logger.exception("Error al hashear clave para usuario %s: %s", email, e)
+                return HttpResponseRedirect(reverse('panel_admin') + '?error=hash_fallo')
 
         try:
             usuario.save()
@@ -216,12 +242,15 @@ def exportar_excel(request):
                 img.height = 55
                 img.width = 195
                 sheet.add_image(img, 'A1')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Error al agregar logo al Excel: %s", e)
 
         # Row 2 — Title
         if ultima_col > 1:
-            sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ultima_col)
+            try:
+                sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ultima_col)
+            except Exception as e:
+                logger.exception("Error al mergear celdas del título: %s", e)
         title_cell = sheet.cell(row=2, column=1, value='FLOWMATIC · Gestión de Talento')
         title_cell.font = Font(name='Calibri', size=16, bold=True, color='0D9488')
         title_cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -229,7 +258,10 @@ def exportar_excel(request):
 
         # Row 3 — Date / filter info
         if ultima_col > 1:
-            sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ultima_col)
+            try:
+                sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ultima_col)
+            except Exception as e:
+                logger.exception("Error al mergear celdas de fecha: %s", e)
         info = f'Generado: {date.today().strftime("%d/%m/%Y")}'
         if query:
             info += f' | Búsqueda: "{query}"'
@@ -307,7 +339,8 @@ def exportar_excel(request):
         response['Content-Disposition'] = 'attachment; filename="usuarios_reporte.xlsx"'
         workbook.save(response)
         return response
-    except Exception:
+    except Exception as e:
+        logger.exception("Error al exportar Excel: %s", e)
         return redirect('panel_admin')
 
 def registro_candidato(request):
@@ -332,7 +365,8 @@ def registro_candidato(request):
                 return render(request, 'registro-candidato.html', {
                     'error_duplicado': True,
                 })
-        except Exception:
+        except Exception as e:
+            logger.exception("Error al verificar email duplicado %s: %s", email, e)
             return render(request, 'registro-candidato.html', {
                 'error_duplicado': True,
             })
@@ -350,12 +384,18 @@ def registro_candidato(request):
                 tokenactivacion=token,
             )
             usuario.save()
-        except IntegrityError:
+        except Exception as e:
+            logger.exception("Error al registrar candidato %s: %s", email, e)
             return render(request, 'registro-candidato.html', {
                 'error_duplicado': True,
             })
 
-        enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        try:
+            enlace = request.build_absolute_uri(f'/activar/?token={token}')
+        except Exception as e:
+            logger.exception("Error al construir URI para %s: %s", email, e)
+            enlace = f'http://localhost:8000/activar/?token={token}'
+
         asunto = 'Activa tu cuenta en FLOWMATIC'
         mensaje = f'''
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
@@ -418,10 +458,16 @@ def forgot_password(request):
             usuario.apellido = 'N/A'
         try:
             usuario.save()
-        except Exception:
+        except Exception as e:
+            logger.exception("Error al guardar token de recuperación para %s: %s", email, e)
             return redirect('/forgot-password/?success=1')
 
-        enlace = request.build_absolute_uri(f'/reset-password?token={token}')
+        try:
+            enlace = request.build_absolute_uri(f'/reset-password?token={token}')
+        except Exception as e:
+            logger.exception("Error al construir URI para %s: %s", usuario.email, e)
+            enlace = f'http://localhost:8000/reset-password?token={token}'
+
         asunto = 'Restablece tu contraseña en FLOWMATIC'
         mensaje = f'''
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px;">
@@ -475,11 +521,17 @@ def reset_password(request):
         except Usuario.DoesNotExist:
             return redirect('/forgot-password/?error_token=1')
 
-        usuario.clave = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        try:
+            usuario.clave = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        except Exception as e:
+            logger.exception("Error al hashear nueva clave: %s", e)
+            return redirect('/forgot-password/?error_token=1')
+
         usuario.tokenactivacion = None
         try:
             usuario.save()
-        except Exception:
+        except Exception as e:
+            logger.exception("Error al guardar nueva clave para token: %s", e)
             return redirect('/forgot-password/?error_token=1')
 
         return redirect('/reset-password?success=1')

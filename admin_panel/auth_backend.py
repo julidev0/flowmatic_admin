@@ -1,8 +1,10 @@
+import logging
 import bcrypt
 from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User as DjangoUser
-from django.db import IntegrityError
 from .models import Usuario
+
+logger = logging.getLogger(__name__)
 
 
 class SpringBootAuthBackend(BaseBackend):
@@ -14,7 +16,8 @@ class SpringBootAuthBackend(BaseBackend):
             usuario = Usuario.objects.get(email=email)
         except Usuario.DoesNotExist:
             return None
-        except Exception:
+        except Exception as e:
+            logger.exception("Error en authenticate (DB lookup) para %s: %s", email, e)
             return None
 
         if not usuario.activo or not usuario.clave:
@@ -25,7 +28,8 @@ class SpringBootAuthBackend(BaseBackend):
             password_bytes = password.encode('utf-8')
             if not bcrypt.checkpw(password_bytes, clave_bytes):
                 return None
-        except Exception:
+        except Exception as e:
+            logger.exception("Error en authenticate (bcrypt) para %s: %s", email, e)
             return None
 
         try:
@@ -47,7 +51,8 @@ class SpringBootAuthBackend(BaseBackend):
             django_user.is_active = True
             django_user.is_staff = True
             django_user.save()
-        except IntegrityError:
+        except Exception as e:
+            logger.exception("Error en authenticate (Django user sync) para %s: %s", email, e)
             return None
 
         return django_user
@@ -56,4 +61,7 @@ class SpringBootAuthBackend(BaseBackend):
         try:
             return DjangoUser.objects.get(pk=user_id)
         except DjangoUser.DoesNotExist:
+            return None
+        except Exception as e:
+            logger.exception("Error en get_user para user_id %s: %s", user_id, e)
             return None
