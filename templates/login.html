@@ -41,11 +41,11 @@
         {% csrf_token %}
         <div class="form-group">
           <label class="form-label">Correo Electrónico</label>
-          <input type="email" name="email" class="form-input" required placeholder="correo@ejemplo.com">
+          <input type="email" name="email" class="form-input" required maxlength="254" placeholder="correo@ejemplo.com">
         </div>
         <div class="form-group">
           <label class="form-label">Contraseña</label>
-          <input type="password" name="clave" class="form-input" required placeholder="••••••••">
+          <input type="password" name="clave" class="form-input" required minlength="8" placeholder="••••••••">
         </div>
         <div class="forgot-link-row">
           <a class="fm-link" href="{% url 'forgot_password' %}">¿Olvidaste tu contraseña?</a>

@@ -15,18 +15,21 @@ class SpringBootAuthBackend(BaseBackend):
         try:
             usuario = Usuario.objects.get(email=email)
         except Usuario.DoesNotExist:
+            logger.warning("Intento de login para email no registrado: %s", email)
             return None
         except Exception as e:
             logger.exception("Error en authenticate (DB lookup) para %s: %s", email, e)
             return None
 
         if not usuario.activo or not usuario.clave:
+            logger.warning("Intento de login para cuenta inactiva: %s", email)
             return None
 
         try:
             clave_bytes = usuario.clave.encode('utf-8')
             password_bytes = password.encode('utf-8')
             if not bcrypt.checkpw(password_bytes, clave_bytes):
+                logger.warning("Contraseña incorrecta para: %s", email)
                 return None
         except Exception as e:
             logger.exception("Error en authenticate (bcrypt) para %s: %s", email, e)
@@ -55,6 +58,7 @@ class SpringBootAuthBackend(BaseBackend):
             logger.exception("Error en authenticate (Django user sync) para %s: %s", email, e)
             return None
 
+        logger.info("Login exitoso para: %s (rol: %s)", email, usuario.rol)
         return django_user
 
     def get_user(self, user_id):

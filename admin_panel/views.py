@@ -18,6 +18,9 @@ from django.urls import reverse
 from .models import Usuario
 from django.db.models import Q
 from datetime import date
+from .validators import (
+    validar_email, validar_password, validar_uuid, validar_longitud
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +30,21 @@ def login_view(request):
 
     if request.method == 'POST':
         email = request.POST.get('email', '').strip()
-        password = request.POST.get('clave', '')
+        password = request.POST.get('clave', '').strip()
         if not email or not password:
             messages.error(request, 'Todos los campos son obligatorios.')
+            return render(request, 'login.html')
+        error_email = validar_email(email)
+        if error_email:
+            messages.error(request, error_email)
+            return render(request, 'login.html')
+        error_long = validar_longitud('email', email)
+        if error_long:
+            messages.error(request, error_long)
+            return render(request, 'login.html')
+        error_long = validar_longitud('clave', password)
+        if error_long:
+            messages.error(request, error_long)
             return render(request, 'login.html')
         try:
             user = authenticate(request, email=email, password=password)
@@ -89,12 +104,20 @@ def crear_rrhh(request):
         email = request.POST.get('email', '').strip()
         username = request.POST.get('username', '').strip()
         apellido = request.POST.get('apellido', '').strip()
-        clave = request.POST.get('clave', '')
+        clave = request.POST.get('clave', '').strip()
 
         if not email or not username or not apellido or not clave:
             return HttpResponseRedirect(reverse('panel_admin') + '?error=campos_vacios')
-        if len(clave) < 8:
-            return HttpResponseRedirect(reverse('panel_admin') + '?error=clave_corta')
+        error_email = validar_email(email)
+        if error_email:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=email_invalido')
+        error_pass = validar_password(clave)
+        if error_pass:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=clave_invalida')
+        for campo, valor in [('username', username), ('apellido', apellido), ('email', email), ('clave', clave)]:
+            error_long = validar_longitud(campo, valor)
+            if error_long:
+                return HttpResponseRedirect(reverse('panel_admin') + '?error=longitud_excedida')
 
         if Usuario.objects.filter(email=email).exists():
             return redirect('/admin/?error=duplicado')
@@ -151,18 +174,28 @@ def crear_rrhh(request):
 @login_required
 def eliminar_usuario(request, usuario_id):
     try:
+        usuario_actual = Usuario.objects.get(email=request.user.username)
+        if usuario_actual.rol not in ('ROLE_ADMINISTRADOR',):
+            messages.error(request, 'No tienes permiso para eliminar usuarios.')
+            return redirect('panel_admin')
+        if str(usuario_actual.id) == str(usuario_id):
+            messages.error(request, 'No puedes eliminarte a ti mismo.')
+            return redirect('panel_admin')
         usuario = get_object_or_404(Usuario, id=usuario_id)
         usuario.delete()
+        messages.success(request, 'Usuario eliminado correctamente.')
+    except Usuario.DoesNotExist:
+        messages.error(request, 'Usuario no encontrado.')
     except Exception as e:
         logger.exception("Error al eliminar usuario %s: %s", usuario_id, e)
-        return redirect('panel_admin')
+        messages.error(request, 'Error al eliminar usuario.')
     return redirect('panel_admin')
 
 
 @login_required
 def editar_usuario(request):
     if request.method == 'POST':
-        usuario_id = request.POST.get('id')
+        usuario_id = request.POST.get('id', '').strip()
         if not usuario_id:
             return redirect('panel_admin')
 
@@ -174,14 +207,24 @@ def editar_usuario(request):
 
         if not username or not apellido or not email:
             return HttpResponseRedirect(reverse('panel_admin') + '?error=campos_vacios')
+        error_email = validar_email(email)
+        if error_email:
+            return HttpResponseRedirect(reverse('panel_admin') + '?error=email_invalido')
+        for campo, valor in [('username', username), ('apellido', apellido), ('email', email)]:
+            error_long = validar_longitud(campo, valor)
+            if error_long:
+                return HttpResponseRedirect(reverse('panel_admin') + '?error=longitud_excedida')
 
         usuario.username = username
         usuario.apellido = apellido
         usuario.email = email
         usuario.telefono = request.POST.get('telefono', '').strip() or None
 
-        nueva_clave = request.POST.get('nuevaClave', '')
-        if nueva_clave and len(nueva_clave) >= 8:
+        nueva_clave = request.POST.get('nuevaClave', '').strip()
+        if nueva_clave:
+            error_pass = validar_password(nueva_clave)
+            if error_pass:
+                return HttpResponseRedirect(reverse('panel_admin') + '?error=clave_invalida')
             try:
                 usuario.clave = bcrypt.hashpw(
                     nueva_clave.encode('utf-8'),
@@ -205,9 +248,11 @@ def exportar_excel(request):
         cols_seleccionadas = request.GET.getlist('col')
         if not cols_seleccionadas:
             cols_seleccionadas = ['id', 'username', 'apellido', 'email', 'rol', 'estado']
+        cols_validas = ['id', 'username', 'apellido', 'email', 'rol', 'estado']
+        cols_seleccionadas = [c for c in cols_seleccionadas if c in cols_validas] or cols_seleccionadas
             
-        query = request.GET.get('q', '')
-        rol = request.GET.get('rol', '')
+        query = request.GET.get('q', '').strip()
+        rol = request.GET.get('rol', '').strip()
         usuarios = Usuario.objects.all()
         if query:
             usuarios = usuarios.filter(Q(username__icontains=query) | Q(email__icontains=query))
@@ -348,17 +393,31 @@ def registro_candidato(request):
         email = request.POST.get('email', '').strip()
         username = request.POST.get('username', '').strip()
         apellido = request.POST.get('apellido', '').strip()
-        clave = request.POST.get('clave', '')
+        clave = request.POST.get('clave', '').strip()
         telefono = request.POST.get('telefono', '').strip() or None
 
         if not email or not username or not apellido or not clave:
             return render(request, 'registro-candidato.html', {
                 'error_campos': True,
             })
-        if len(clave) < 8:
+        error_email = validar_email(email)
+        if error_email:
             return render(request, 'registro-candidato.html', {
-                'error_clave_corta': True,
+                'error_email_invalido': True,
             })
+        error_pass = validar_password(clave)
+        if error_pass:
+            return render(request, 'registro-candidato.html', {
+                'error_clave_complejidad': True,
+                'errores_clave': error_pass,
+            })
+        for campo, valor in [('username', username), ('apellido', apellido), ('email', email), ('clave', clave)]:
+            error_long = validar_longitud(campo, valor)
+            if error_long:
+                return render(request, 'registro-candidato.html', {
+                    'error_longitud': True,
+                    'mensaje_longitud': error_long,
+                })
 
         try:
             if Usuario.objects.filter(email=email).exists():
@@ -427,8 +486,11 @@ def registro_candidato(request):
 
 
 def activar_cuenta(request):
-    token = request.GET.get('token')
+    token = request.GET.get('token', '').strip()
     if not token:
+        return render(request, 'activacion.html', {'token_invalido': True})
+    error_token = validar_uuid(token)
+    if error_token:
         return render(request, 'activacion.html', {'token_invalido': True})
 
     try:
@@ -446,10 +508,17 @@ def forgot_password(request):
         email = request.POST.get('email', '').strip()
         if not email:
             return render(request, 'forgot-password.html', {'error_campos': True})
+        error_email = validar_email(email)
+        if error_email:
+            return render(request, 'forgot-password.html', {'error_email_invalido': True})
+        error_long = validar_longitud('email', email)
+        if error_long:
+            return render(request, 'forgot-password.html', {'error_longitud': True})
 
         try:
             usuario = Usuario.objects.get(email=email)
         except Usuario.DoesNotExist:
+            logger.info("Intento de recuperación para email no registrado: %s", email)
             return redirect('/forgot-password/?success=1')
 
         token = str(uuid.uuid4())
@@ -505,21 +574,31 @@ def reset_password(request):
 
     if request.method == 'POST':
         token = request.POST.get('token', '').strip()
-        password = request.POST.get('password', '')
+        password = request.POST.get('password', '').strip()
 
         if not token:
             return render(request, 'reset-password.html', {'error_token': True})
+        error_token = validar_uuid(token)
+        if error_token:
+            return render(request, 'reset-password.html', {'error_token': True})
 
-        if len(password) < 8:
+        if not password:
             return render(request, 'reset-password.html', {
                 'token': token,
                 'error_password': True,
+            })
+        error_pass = validar_password(password)
+        if error_pass:
+            return render(request, 'reset-password.html', {
+                'token': token,
+                'error_clave_complejidad': True,
+                'errores_clave': error_pass,
             })
 
         try:
             usuario = Usuario.objects.get(tokenactivacion=token)
         except Usuario.DoesNotExist:
-            return redirect('/forgot-password/?error_token=1')
+            return render(request, 'reset-password.html', {'error_token': True})
 
         try:
             usuario.clave = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -537,7 +616,7 @@ def reset_password(request):
         return redirect('/reset-password?success=1')
 
     token = request.GET.get('token', '').strip()
-    if not token:
+    if not token or validar_uuid(token):
         return render(request, 'reset-password.html', {'error_token': True})
 
     return render(request, 'reset-password.html', {'token': token})

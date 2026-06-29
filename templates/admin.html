@@ -118,6 +118,11 @@
     </div>
     <div class="admin-content">
 
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
       {% if request.GET.error == 'duplicado' %}
         <div class="alert alert-error">Error: El correo ya está registrado.</div>
       {% endif %}
@@ -127,8 +132,23 @@
       {% if request.GET.error == 'clave_corta' %}
         <div class="alert alert-error">La contraseña debe tener al menos 8 caracteres.</div>
       {% endif %}
-      {% if request.GET.envio_exitoso %}
+      {% if request.GET.error == 'email_invalido' %}
+        <div class="alert alert-error">Ingresa un correo electrónico válido.</div>
+      {% endif %}
+      {% if request.GET.error == 'clave_invalida' %}
+        <div class="alert alert-error">La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un dígito.</div>
+      {% endif %}
+      {% if request.GET.error == 'hash_fallo' %}
+        <div class="alert alert-error">Error al guardar la contraseña. Intenta de nuevo.</div>
+      {% endif %}
+      {% if request.GET.error == 'longitud_excedida' %}
+        <div class="alert alert-error">Uno de los campos excede la longitud máxima permitida.</div>
+      {% endif %}
+      {% if request.GET.envio_exitoso and not request.GET.email_fallo %}
         <div class="alert alert-success">Usuario RRHH creado. Se ha enviado un correo de activación.</div>
+      {% endif %}
+      {% if request.GET.envio_exitoso and request.GET.email_fallo %}
+        <div class="alert alert-warning">Usuario RRHH creado, pero no se pudo enviar el correo de activación.</div>
       {% endif %}
       {% if request.GET.editado %}
         <div class="alert alert-success">Usuario editado correctamente.</div>
@@ -256,15 +276,20 @@
           <input type="hidden" id="edit-id" name="id">
           <div class="form-group">
             <label class="form-label">Nombre</label>
-            <input type="text" class="form-input" id="edit-username" name="username" required>
+            <input type="text" class="form-input" id="edit-username" name="username"
+                   required minlength="2" maxlength="100"
+                   pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios">
           </div>
           <div class="form-group">
             <label class="form-label">Apellido</label>
-            <input type="text" class="form-input" id="edit-apellido" name="apellido" required>
+            <input type="text" class="form-input" id="edit-apellido" name="apellido"
+                   required minlength="2" maxlength="100"
+                   pattern="[A-Za-záéíóúÁÉÍÓÚñÑ\s]+" title="Solo letras y espacios">
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" class="form-input" id="edit-email" name="email" required>
+            <input type="email" class="form-input" id="edit-email" name="email"
+                   required maxlength="254">
           </div>
           <div class="form-group">
             <label class="form-label">Teléfono</label>
